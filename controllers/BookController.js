@@ -3,15 +3,28 @@ const {StatusCodes} = require('http-status-codes');
 const dotenv = require('dotenv');
 //[2기] 박소현
 const allBooks = (req, res) => {
+    const user_id = +req.body.user_id;
     let {category_id, news, limit, page} = req.query;
     category_id = +category_id;
     limit = +limit;
     page = +page;
     const offsetValue = (page-1)*limit;
-    const values = [limit, offsetValue];
+    const values = [user_id, limit, offsetValue];
     
-    let sql = `select * from books left join BookShop.category 
-                on BookShop.books.category_id = BookShop.category.id `;
+    let sql = `select *,
+                    (select count(*) from BookShop.likes where BookShop.likes.liked_book_id=BookShop.books.id)
+                    as likes,
+                    (select exists 
+                        (select * from BookShop.likes 
+                        where BookShop.likes.user_id=? and BookShop.likes.liked_book_id=BookShop.books.id)
+                    )
+                    as my_like,
+                    (select category_name from BookShop.category where BookShop.books.category_id = BookShop.category.id)
+                    as category_name
+                    from BookShop.books`;
+                
+                // `    from BookShop.books left join BookShop.category 
+                // on BookShop.books.category_id = BookShop.category.id`;
     if (category_id || news) 
         sql += " where "
     if (category_id) {
@@ -37,12 +50,21 @@ const allBooks = (req, res) => {
 };
 
 const bookDetail = (req, res) => {
-    let {id} = req.params;
+    const user_id = +req.body.user_id;
+    const book_id = +req.params.id;
+    const values = [user_id, book_id, book_id];
 
-    let sql = `select * from BookShop.books left
+    let sql = `select *,
+                    (select count(*) from BookShop.likes where BookShop.likes.liked_book_id=BookShop.books.id)
+                    as likes,
+                    (select exists 
+                        (select * from BookShop.likes 
+                        where BookShop.likes.user_id=? and BookShop.likes.liked_book_id=?)
+                    ) as my_like
+                from BookShop.books left
                 join BookShop.category on BookShop.books.category_id = BookShop.category.id
                 where BookShop.books.id = ?`;
-    conn.query(sql, id,
+    conn.query(sql, values,
         (err, results) => {
         if(err) {
             console.log(err);
